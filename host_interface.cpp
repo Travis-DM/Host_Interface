@@ -223,14 +223,14 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         if (dLength <= 255)
         {
             msg.datalength = dLength;
-            memcpy(msg.data,VERSION,msg.datalength);
+            memcpy(msg.data,_VERSION_,msg.datalength);
         }
         else
         {
             msg.datalength = 255;
-            memcpy(msg.data,VERSION,msg.datalength);
+            memcpy(msg.data,_VERSION_,msg.datalength);
             msg.datalength2 = dLength - 255;
-            memcpy(msg.data,VERSION+255,msg.datalength);
+            memcpy(msg.data,_VERSION_+255,msg.datalength);
         }
         hostInterface.write((byte*)&msg,dLength+3);
         break;
@@ -258,6 +258,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
     }
         break;
+        /*
     case CAN0ID:
         {
             
@@ -435,7 +436,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             packet[2] = 0;
             hostInterface.write((byte*)packet,3);
         }
-        break;
+        break;*/
     case USART1ID:
         if (usart1EN())
         {            
