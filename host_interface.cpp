@@ -218,7 +218,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         _Host_message msg;
         msg.proto = VERSIONID;
         msg.config = 0;
-        dLength = strlen(VERSION);
+        dLength = strlen(_VERSION_);
         debug.printf("msg.datalength : %d\n",dLength);
         if (dLength <= 255)
         {
@@ -768,7 +768,7 @@ Host_Interface::Host_Interface(/* args */)
 Host_Interface::~Host_Interface()
 {
 }
-
+/*
 void canDump(const CAN_message_t &msg) {
   
   static USB_msg_t hmsg;  
@@ -824,7 +824,7 @@ void handle_can(void)
     can2.events();
   }
 }
-
+*/
 void LED::setLEDs(uint8_t red, uint8_t blue, uint8_t green)
 {
 
