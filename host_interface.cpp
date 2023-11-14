@@ -150,7 +150,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             debugger.msg(3,"LED Color = 0x%x\n",color);
             for (int x = 0; x < 1; x++)
             {
-                setLED(x, color);
+                //setLED(x, color);
             //
             }
         }
