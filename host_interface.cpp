@@ -34,7 +34,7 @@ void Host_Interface::BufferData(char c)
         //Take care of single byte commands
         if((deviceID <= 0x28)||(deviceID == 0x2E)||(deviceID == 0x30)||((deviceID >= ADC0ID)&&(deviceID <= ADCFID))||(deviceID == I2C1ID)||(deviceID == I2C2ID)||(deviceID == I2C0ID))
         {
-            debug.println("Single Byte");
+            debugger.msg(3,"Single Byte");
             ParseMessage(deviceID,0,data);
             dataCount = 0;
             data[dataCount] = 0;
