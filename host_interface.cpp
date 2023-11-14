@@ -10,6 +10,8 @@
 #include "pwm.h"
 
 
+#include "debugger.h"
+
 #include "i2c.h"
 #include "led.h"
 
@@ -24,7 +26,7 @@ void Host_Interface::BufferData(char c)
     if (sCount == 0)
     {
         buffCount = 0;
-        debug.printf("got id %x\n",c);
+        debugger.msg(3,"got id %x\n",c);
         deviceID = c;
         buffer[buffCount] = c;
         buffCount++;
@@ -42,7 +44,7 @@ void Host_Interface::BufferData(char c)
     }
     else if (sCount == 1)
     {
-        debug.printf("got length %d\n",c);
+        debugger.msg(3,"got length %d\n",c);
         dataLength = c;
         sCount++;
         buffer[buffCount] = c;
@@ -68,13 +70,13 @@ void Host_Interface::BufferData(char c)
     }
     else if(sCount == 2)
     {
-        debug.printf("got length 2%d\n",c);
+        debugger.msg(3,"got length 2%d\n",c);
         dataLength = dataLength + (c * 0X100);
         sCount++;
         buffer[buffCount] = c;
         buffCount++;
         dataCount = 0;
-        debug.printf("data length %d\n",dataLength);
+        debugger.msg(3,"data length %d\n",dataLength);
         if(dataLength == 0)
         {
             ParseMessage(deviceID,dataLength,data);
@@ -85,7 +87,7 @@ void Host_Interface::BufferData(char c)
     }
     else
     {
-        debug.printf("data : %x ::: data count : %d ::: dataLenght : %d\n",c,dataCount,dataLength);
+        debugger.msg(3,"data : %x ::: data count : %d ::: dataLenght : %d\n",c,dataCount,dataLength);
         data[dataCount] = c;
         buffer[buffCount] = c;
         buffCount++;
@@ -107,20 +109,20 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     uint8_t dID = _dID & 0X7F;
     if ((dID & 0X7F) <= 41 ) //Gpio pin function
     {
-        debug.printf("dID : %d\n",_dID);
+        debugger.msg(3,"dID : %d\n",_dID);
         if((_dID & 0X80) >= 1)
         {
-            debug.printf("Writing pin : %d\n", dID & 0X7F);
+            debugger.msg(3,"Writing pin : %d\n", dID & 0X7F);
             gpio[dID & 0X3F].Write(data[0]);
         }
         else
         {
-            debug.printf("Reading pin : %d\n",dID);
+            debugger.msg(3,"Reading pin : %d\n",dID);
             gpio[dID & 0X3F].Read();
         }
     }
     //What device
-    debug.printf("_dID = %x\n",_dID);
+    debugger.msg(3,"_dID = %x\n",_dID);
     switch (_dID)
     {
     case HEARTBEAT:{
@@ -143,9 +145,9 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             uint8_t red = data[0];
             uint8_t green = data[1];
             uint8_t blue = data[2];
-            debug.printf("Setting LED string to 0x%x red, 0x%x green, 0x%x blue\n",red,green,blue);
+            debugger.msg(3,"Setting LED string to 0x%x red, 0x%x green, 0x%x blue\n",red,green,blue);
             int color = (red << 16) + (green << 8) + blue;
-            debug.printf("LED Color = 0x%x\n",color);
+            debugger.msg(3,"LED Color = 0x%x\n",color);
             for (int x = 0; x < 1; x++)
             {
                 setLED(x, color);
@@ -219,7 +221,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         msg.proto = VERSIONID;
         msg.config = 0;
         dLength = strlen(_VERSION_);
-        debug.printf("msg.datalength : %d\n",dLength);
+        debugger.msg(3,"msg.datalength : %d\n",dLength);
         if (dLength <= 255)
         {
             msg.datalength = dLength;
@@ -422,7 +424,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART0");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART0.printf("%c",data[x]);
                 }
             }
@@ -449,7 +451,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART1");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART1.printf("%c",data[x]);
                 }
             }
@@ -476,7 +478,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART2");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART2.printf("%c",data[x]);
                 }
             }
@@ -503,7 +505,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART3");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART3.printf("%c",data[x]);
                 }
             }
@@ -530,7 +532,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART4");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART4.printf("%c",data[x]);
                 }
             }
@@ -557,7 +559,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART5");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART5.printf("%c",data[x]);
                 }
             }
@@ -584,7 +586,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART6");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART6.printf("%c",data[x]);
                 }
             }
@@ -611,7 +613,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 debug.println("Sending data to USART7");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debug.printf("%c",data[x]);
+                    debugger.msg(3,"%c",data[x]);
                     USART7.printf("%c",data[x]);
                 }
             }
@@ -633,16 +635,16 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             {
                 uint8_t* devices;
                 uint8_t dcount = busScan(bus ,devices);
-                debug.printf("%d Found on I2C Bus %d\n", dcount, bus);
+                debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
                 for(int x =0; x < dcount; x++)
                 {
-                    debug.printf("::0X%X:",devices[dcount]);
+                    debugger.msg(3,"::0X%X:",devices[dcount]);
                 }
                 debug.println(" ");
             }
             else
             {
-                debug.printf("I2C%d is not enabled",bus);
+                debugger.msg(3,"I2C%d is not enabled",bus);
                 uint8_t packet[3];
                 packet[0] = (I2C0ID+0x80);
                 packet[1] = 0;
@@ -658,16 +660,16 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         {
             uint8_t* devices;
             uint8_t dcount = busScan(bus ,devices);
-            debug.printf("%d Found on I2C Bus %d\n", dcount, bus);
+            debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
             for(int x =0; x < dcount; x++)
             {
-                debug.printf("::0X%X:",devices[dcount]);
+                debugger.msg(3,"::0X%X:",devices[dcount]);
             }
             debug.println(" ");
         }
         else
         {
-            debug.printf("I2C%d is not enabled",bus);
+            debugger.msg(3,"I2C%d is not enabled",bus);
             uint8_t packet[3];
             packet[0] = (I2C0ID+0x80);
             packet[1] = 0;
@@ -683,17 +685,17 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         {
             uint8_t devices[128];
             uint8_t dcount = busScan(bus , devices);
-            //debug.printf("Devices Adress == 0x%x\n", *devices);
-            debug.printf("%d Found on I2C Bus %d\n", dcount, bus);
+            //debugger.msg(3,"Devices Adress == 0x%x\n", *devices);
+            debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
             for(int x =0; x < dcount; x++)
             {
-                debug.printf("::0X%X:",devices[dcount]);
+                debugger.msg(3,"::0X%X:",devices[dcount]);
             }
             debug.println(" ");
         }
         else
         {
-            debug.printf("I2C%d is not enabled",bus);
+            debugger.msg(3,"I2C%d is not enabled",bus);
             uint8_t packet[3];
             packet[0] = (I2C0ID+0x80);
             packet[1] = 0;
