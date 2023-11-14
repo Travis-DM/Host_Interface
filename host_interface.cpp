@@ -129,7 +129,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         uint8_t packet[3];
         //received heartbeat
         //ToDo Add timestamp
-        debug.println("Received Heartbeat");
+        debugger.msg(3,"Received Heartbeat");
         packet[0] = HEARTBEAT;
         packet[1] = 0;
         packet[2] = 0;
@@ -156,7 +156,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("LED0 is not configured as LED");
+            debugger.msg(3,"LED0 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED0ID+0x80);
             packet[1] = 0;
@@ -172,7 +172,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("LED1 is not configured as LED");
+            debugger.msg(3,"LED1 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED1ID+0x80);
             packet[1] = 0;
@@ -189,7 +189,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("LED2 is not configured as LED");
+            debugger.msg(3,"LED2 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED2ID+0x80);
             packet[1] = 0;
@@ -205,7 +205,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("LED3 is not configured as LED");
+            debugger.msg(3,"LED3 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED3ID+0x80);
             packet[1] = 0;
@@ -240,7 +240,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case RESETID:
     {   
         //This should take a code
-        debug.println("Resetting CPU");
+        debugger.msg(3,"Resetting CPU");
         //ToDo Check Hash Value
         _Host_message msg;
         msg.proto = RESETID;
@@ -421,7 +421,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {
-                debug.println("Sending data to USART0");
+                debugger.msg(3,"Sending data to USART0");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -431,7 +431,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART0 is not configured as USART");
+            debugger.msg(3,"USART0 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART0ID+0x80);
             packet[1] = 0;
@@ -448,7 +448,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {
-                debug.println("Sending data to USART1");
+                debugger.msg(3,"Sending data to USART1");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -458,7 +458,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART1 is not configured as USART");
+            debugger.msg(3,"USART1 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART1ID+0x80);
             packet[1] = 0;
@@ -475,7 +475,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {       
-                debug.println("Sending data to USART2");
+                debugger.msg(3,"Sending data to USART2");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -485,7 +485,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART2 is not configured as USART");
+            debugger.msg(3,"USART2 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART2ID+0x80);
             packet[1] = 0;
@@ -502,7 +502,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {      
-                debug.println("Sending data to USART3");
+                debugger.msg(3,"Sending data to USART3");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -512,7 +512,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART3 is not configured as USART");
+            debugger.msg(3,"USART3 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART3ID+0x80);
             packet[1] = 0;
@@ -529,7 +529,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {
-                debug.println("Sending data to USART4");
+                debugger.msg(3,"Sending data to USART4");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -539,7 +539,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART4 is not configured as USART");
+            debugger.msg(3,"USART4 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART4ID+0x80);
             packet[1] = 0;
@@ -556,7 +556,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {    
-                debug.println("Sending data to USART5");
+                debugger.msg(3,"Sending data to USART5");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -566,7 +566,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART5 is not configured as USART");
+            debugger.msg(3,"USART5 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART5ID+0x80);
             packet[1] = 0;
@@ -583,7 +583,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {        
-                debug.println("Sending data to USART6");
+                debugger.msg(3,"Sending data to USART6");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -593,7 +593,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART6 is not configured as USART");
+            debugger.msg(3,"USART6 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART6ID+0x80);
             packet[1] = 0;
@@ -610,7 +610,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {        
-                debug.println("Sending data to USART7");
+                debugger.msg(3,"Sending data to USART7");
                 for (int x = 0; x < dLenght; x++)
                 {
                     debugger.msg(3,"%c",data[x]);
@@ -620,7 +620,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debug.println("USART7 is not configured as USART");
+            debugger.msg(3,"USART7 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART7ID+0x80);
             packet[1] = 0;
@@ -640,7 +640,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                 {
                     debugger.msg(3,"::0X%X:",devices[dcount]);
                 }
-                debug.println(" ");
+                debugger.msg(3," ");
             }
             else
             {
@@ -665,7 +665,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             {
                 debugger.msg(3,"::0X%X:",devices[dcount]);
             }
-            debug.println(" ");
+            debugger.msg(3," ");
         }
         else
         {
@@ -691,7 +691,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             {
                 debugger.msg(3,"::0X%X:",devices[dcount]);
             }
-            debug.println(" ");
+            debugger.msg(3," ");
         }
         else
         {
