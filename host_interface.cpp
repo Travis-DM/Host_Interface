@@ -10,8 +10,6 @@
 #include "pwm.h"
 
 
-#include "debugger.h"
-
 #include "i2c.h"
 #include "led.h"
 
@@ -21,20 +19,109 @@
 char buffer[512];
 uint8_t buffCount;
 
+
+uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt)
+{
+    //GPIO Write
+    if(pkt.msg_type <= 0X28)
+    {
+        if(pkt.flag == 1)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    if((pkt.msg_type == HEARTBEAT)||(pkt.msg_type == 0x2E)||(pkt.msg_type == 0x30)||((pkt.msg_type >= ADC0ID)&&(pkt.msg_type <= ADCFID))||(pkt.msg_type == I2C1ID)||(pkt.msg_type == I2C2ID)||(pkt.msg_type == I2C0ID))
+    {
+        return 0;
+    }
+    return 0XFF;
+
+}
+
+uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt, uint8_t c)
+{    //USART Write
+    if(((pkt.msg_type >= USART0ID)&&(pkt.msg_type <= USART7ID))||pkt.msg_type == USB_USARTID)
+    {
+        return c;
+    }
+        //GPIO Write
+    if(pkt.msg_type <= 0X28)
+    {
+        
+        dataCount = 1;
+        hPKT.data[0] = c;
+        SerialUSB2.printf(" c data %x : %x \n\r",c,pkt.data[0]);
+        return 0;
+    }
+    //LED Write
+    if((pkt.msg_type >= LED0ID)&&(pkt.msg_type <= LED3ID))
+    {
+        dataCount = 1;
+        hPKT.data[0] = c;
+        return 4;
+    }
+    //GPIO Binary Write
+    if(pkt.msg_type == GPIOWID)
+    {
+        dataCount = 1;
+        hPKT.data[0] = c;
+        return 6;
+    }
+    //CAN Write
+    if((pkt.msg_type >= CAN0ID)&&(pkt.msg_type <= CANFDID))
+    {
+        //Break down CAN Packet
+        return 64;
+    }
+    //PWM Write
+    if((pkt.msg_type >= PWM0ID)&&(pkt.msg_type <= PWM19ID))
+    {
+        dataCount = 1;
+        hPKT.data[0] = c;
+        return 1;
+    }
+    return 0XFF;
+
+}
+
+
+void Host_Interface::ResetBuffer(void)
+{
+    if(millis() > (sTime + 500))
+    {
+        sCount = 0;
+        sTime = millis();
+    }
+    //SerialUSB2.printf("buffer reset: %d :: %x\n\r",sCount);
+}
+
 void Host_Interface::BufferData(char c)
 {
+    sTime = millis();
+    SerialUSB2.printf("got data: %d :: %x\n\r",c,sCount);
     if (sCount == 0)
     {
         buffCount = 0;
-        debugger.msg(3,"got id %x\n",c);
         deviceID = c;
+        hPKT.msg_type = c;
+        if(c >= 0X80)
+        {
+            hPKT.flag = 1;
+        }
         buffer[buffCount] = c;
         buffCount++;
         sCount++;
+        dataLength = getIOpktLength(hPKT);
+        SerialUSB2.printf("deviceID %x\n\r",deviceID);
         //Take care of single byte commands
-        if((deviceID <= 0x28)||(deviceID == 0x2E)||(deviceID == 0x30)||((deviceID >= ADC0ID)&&(deviceID <= ADCFID))||(deviceID == I2C1ID)||(deviceID == I2C2ID)||(deviceID == I2C0ID))
+        //if((deviceID <= 0x28)||(deviceID == HEARTBEAT)||(deviceID == 0x2E)||(deviceID == 0x30)||((deviceID >= ADC0ID)&&(deviceID <= ADCFID))||(deviceID == I2C1ID)||(deviceID == I2C2ID)||(deviceID == I2C0ID))
+        if(dataLength == 0)
         {
-            debugger.msg(3,"Single Byte");
+            SerialUSB2.println("in one byte mode");
             ParseMessage(deviceID,0,data);
             dataCount = 0;
             data[dataCount] = 0;
@@ -44,12 +131,17 @@ void Host_Interface::BufferData(char c)
     }
     else if (sCount == 1)
     {
-        debugger.msg(3,"got length %d\n",c);
-        dataLength = c;
+        dataCount = 0;
+        dataLength = getIOpktLength(hPKT,c);
+        if (dataLength == 0)
+        {
+            SerialUSB2.println("in 2 byte mode");
+            ParseMessage(hPKT.msg_type,1,hPKT.data);
+        }
         sCount++;
         buffer[buffCount] = c;
         buffCount++;
-        dataCount = 0;
+        
         uint8_t temp = deviceID & 0X7F;
         switch (temp)
         {
@@ -59,7 +151,8 @@ void Host_Interface::BufferData(char c)
         case CANFDID:
             {
                 //canCMD = ((dataLength & 0x03) << 1) + ((deviceID & 0x80) >> 7);
-                dataLength = (dataLength & 0xFC) >> 2; 
+                //dataLength = (dataLength & 0xFC) >> 2;
+                dataLength = 64; 
                 sCount = 3;
                 break;
             }
@@ -70,13 +163,12 @@ void Host_Interface::BufferData(char c)
     }
     else if(sCount == 2)
     {
-        debugger.msg(3,"got length 2%d\n",c);
-        dataLength = dataLength + (c * 0X100);
+        //dataLength = dataLength + (c * 0X100);
+        dataLength--;
         sCount++;
         buffer[buffCount] = c;
         buffCount++;
-        dataCount = 0;
-        debugger.msg(3,"data length %d\n",dataLength);
+        //dataCount = 0;
         if(dataLength == 0)
         {
             ParseMessage(deviceID,dataLength,data);
@@ -87,7 +179,6 @@ void Host_Interface::BufferData(char c)
     }
     else
     {
-        debugger.msg(3,"data : %x ::: data count : %d ::: dataLenght : %d\n",c,dataCount,dataLength);
         data[dataCount] = c;
         buffer[buffCount] = c;
         buffCount++;
@@ -103,37 +194,50 @@ void Host_Interface::BufferData(char c)
 
 
 }
+void Host_Interface::SetPort(uint8_t P)
+{
+    Port = P;
+}
+
+void Host_Interface::SetBaud(u_long b)
+{
+    baud = b;
+}
+
+
 
 void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
 {
+    //hostInterface2.printf("in parser %x\n\r",data[0]);
     uint8_t dID = _dID & 0X7F;
+    SerialUSB2.printf("Parsing the Data\n\r");
+    //SerialUSB2.printf("dID %x:: _dID::%x\n\r",dID,_dID);
+    SerialUSB2.printf(" device flag data %x : %x : %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.data[0]);
     if ((dID & 0X7F) <= 41 ) //Gpio pin function
     {
-        debugger.msg(3,"dID : %d\n",_dID);
-        if((_dID & 0X80) >= 1)
+        if(hPKT.flag == 1)
         {
-            debugger.msg(3,"Writing pin : %d\n", dID & 0X7F);
-            gpio[dID & 0X3F].Write(data[0]);
+            SerialUSB2.printf("Writing pin %x : %x \n\r",dID,hPKT.data[0]);
+            gpio[dID & 0X3F].Write(hPKT.data[0]);
         }
         else
-        {
-            debugger.msg(3,"Reading pin : %d\n",dID);
-            gpio[dID & 0X3F].Read();
+        {    
+            uint8_t packet[2];
+            packet[1] = gpio[dID & 0X3F].Read();
+            packet[0] = dID & 0X3F;
+            write((byte*)packet,2);
         }
     }
     //What device
-    debugger.msg(3,"_dID = %x\n",_dID);
-    switch (_dID)
+    switch (dID)
     {
     case HEARTBEAT:{
-        uint8_t packet[3];
+        _heartbeat_t pkt;
+        SerialUSB2.printf("in HeartBeat::%d\n\r",sizeof(pkt));
         //received heartbeat
         //ToDo Add timestamp
-        debugger.msg(3,"Received Heartbeat");
-        packet[0] = HEARTBEAT;
-        packet[1] = 0;
-        packet[2] = 0;
-        hostInterface.write((byte*)packet,3);
+        pkt.msg_type = HEARTBEAT;
+        write((uint8_t *)&pkt,sizeof(pkt));
     }
         break;
     case LCDID:
@@ -145,9 +249,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             uint8_t red = data[0];
             uint8_t green = data[1];
             uint8_t blue = data[2];
-            debugger.msg(3,"Setting LED string to 0x%x red, 0x%x green, 0x%x blue\n",red,green,blue);
             int color = (red << 16) + (green << 8) + blue;
-            debugger.msg(3,"LED Color = 0x%x\n",color);
             for (int x = 0; x < 1; x++)
             {
                 //setLED(x, color);
@@ -156,12 +258,11 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debugger.msg(3,"LED0 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED0ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
     }
         break;
@@ -172,12 +273,11 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debugger.msg(3,"LED1 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED1ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
     }
         break;
@@ -189,12 +289,11 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debugger.msg(3,"LED2 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED2ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
     }
         break;
@@ -205,12 +304,11 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         }
         else
         {
-            debugger.msg(3,"LED3 is not configured as LED");
             uint8_t packet[3];
             packet[0] = (LED3ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
     }
         break;
@@ -221,7 +319,6 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         msg.proto = VERSIONID;
         msg.config = 0;
         dLength = strlen(_VERSION_);
-        debugger.msg(3,"msg.datalength : %d\n",dLength);
         if (dLength <= 255)
         {
             msg.datalength = dLength;
@@ -234,20 +331,20 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             msg.datalength2 = dLength - 255;
             memcpy(msg.data,_VERSION_+255,msg.datalength);
         }
-        hostInterface.write((byte*)&msg,dLength+3);
+        write((byte*)&msg,dLength+3);
         break;
     }
     case RESETID:
     {   
         //This should take a code
-        debugger.msg(3,"Resetting CPU");
         //ToDo Check Hash Value
         _Host_message msg;
         msg.proto = RESETID;
         msg.config = 0;
-        hostInterface.write((byte*)&msg,1);
+        write((byte*)&msg,1);
         delay(1000);
         _reboot_Teensyduino_();
+        break;
     }
     case MEMORYID:{
             if(_dID > 0x80)
@@ -436,7 +533,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             packet[0] = (USART0ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;*/
     case USART1ID:
@@ -448,22 +545,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {
-                debugger.msg(3,"Sending data to USART1");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART1.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART1 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART1ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
     case USART2ID:
@@ -475,22 +569,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {       
-                debugger.msg(3,"Sending data to USART2");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART2.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART2 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART2ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
     case USART3ID:
@@ -502,22 +593,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {      
-                debugger.msg(3,"Sending data to USART3");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART3.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART3 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART3ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;  
     case USART4ID:
@@ -529,22 +617,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {
-                debugger.msg(3,"Sending data to USART4");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART4.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART4 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART4ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;  
     case USART5ID:
@@ -556,22 +641,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {    
-                debugger.msg(3,"Sending data to USART5");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART5.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART5 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART5ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
     case USART6ID:
@@ -583,22 +665,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {        
-                debugger.msg(3,"Sending data to USART6");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART6.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART6 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART6ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
     case USART7ID:
@@ -610,22 +689,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
             else
             {        
-                debugger.msg(3,"Sending data to USART7");
                 for (int x = 0; x < dLenght; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
                     USART7.printf("%c",data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART7 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART7ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
     case I2C0ID:
@@ -635,21 +711,17 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             {
                 uint8_t* devices;
                 uint8_t dcount = busScan(bus ,devices);
-                debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
                 for(int x =0; x < dcount; x++)
                 {
-                    debugger.msg(3,"::0X%X:",devices[dcount]);
                 }
-                debugger.msg(3," ");
             }
             else
             {
-                debugger.msg(3,"I2C%d is not enabled",bus);
                 uint8_t packet[3];
                 packet[0] = (I2C0ID+0x80);
                 packet[1] = 0;
                 packet[2] = 0;
-                hostInterface.write((byte*)packet,3);
+                Serial1.write((byte*)packet,3);
             }
         break;
         }
@@ -660,21 +732,14 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         {
             uint8_t* devices;
             uint8_t dcount = busScan(bus ,devices);
-            debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
-            for(int x =0; x < dcount; x++)
-            {
-                debugger.msg(3,"::0X%X:",devices[dcount]);
-            }
-            debugger.msg(3," ");
         }
         else
         {
-            debugger.msg(3,"I2C%d is not enabled",bus);
             uint8_t packet[3];
             packet[0] = (I2C0ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
         }
@@ -685,22 +750,14 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         {
             uint8_t devices[128];
             uint8_t dcount = busScan(bus , devices);
-            //debugger.msg(3,"Devices Adress == 0x%x\n", *devices);
-            debugger.msg(3,"%d Found on I2C Bus %d\n", dcount, bus);
-            for(int x =0; x < dcount; x++)
-            {
-                debugger.msg(3,"::0X%X:",devices[dcount]);
-            }
-            debugger.msg(3," ");
         }
         else
         {
-            debugger.msg(3,"I2C%d is not enabled",bus);
             uint8_t packet[3];
             packet[0] = (I2C0ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
-            hostInterface.write((byte*)packet,3);
+            write((byte*)packet,3);
         }
         break;
         }
@@ -720,7 +777,14 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case ADCDID:
     case ADCEID:
     case ADCFID:
-        analog[dID - ADC0ID].Read();
+    case ADC10ID:
+    case ADC11ID:
+        uint16_t value = analog[dID - ADC0ID].Read();
+        _adc_message msg;
+        msg.proto = dID;
+        msg.config = 0;
+        msg.data = value;
+        write((uint8_t *)&msg,sizeof(msg));
         break;
     case PWM0ID:
     case PWM1ID:
@@ -747,11 +811,10 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case PWM16ID:
     case PWM17ID:
     case PWM18ID:
-    case PWM19ID:
-    case PWM1AID:
-    case PWM1BID:{
+    case PWM19ID:{
         uint16_t lvalue = 0;
-        lvalue = (data[0] << 8) + data[1];
+        lvalue = (hPKT.data[1] << 8) + hPKT.data[0];
+        SerialUSB2.printf("PWM:%x:%x::%x\n\r",hPKT.data[0],hPKT.data[1]);
         pwm[dID - PWM0ID].Write(lvalue);
     }
             break;
@@ -761,7 +824,24 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
 }
     
 
-
+void Host_Interface::write(const uint8_t *data,uint8_t count)
+{
+    switch (Port)
+    {
+    case 0:
+        hostInterface.write(data,count);
+        break;
+    case 1:
+        hostInterface1.write(data,count);
+        break;
+    case 2:
+        hostInterface2.write(data,count);
+        break;
+    
+    default:
+        break;
+    }
+}
 
 Host_Interface::Host_Interface(/* args */)
 {

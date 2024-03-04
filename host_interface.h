@@ -3,22 +3,7 @@
 
 #include <Arduino.h>
 
-class Host_Interface
-{
-private:
-    void ParseMessage(uint8_t dID,uint8_t dLenght, uint8_t *data);
-    char sBuffer[512];
-    int sCount = 0;
-    uint8_t deviceID;
-    uint8_t dataLength;
-    uint8_t data[255];
-    uint8_t dataCount;
-    uint8_t canCMD;
-public:
-    void BufferData(char c);
-    Host_Interface(/* args */);
-    ~Host_Interface();
-};
+#define PACKED __attribute__ ((packed))
 
 struct _Host_message
 {
@@ -28,7 +13,59 @@ struct _Host_message
     uint8_t data[255];
     uint8_t datalength2;
     uint8_t data2[255];
+}PACKED;
+
+struct _host_pkt_t
+{
+    uint8_t msg_type:7;
+    uint8_t flag:1;
+    uint8_t dLength:8;
+    uint8_t data[510];
+}PACKED;
+
+struct _adc_message
+{
+    uint8_t proto:7;
+    uint8_t config:1;
+    uint16_t data:16;
+}PACKED;
+
+struct _heartbeat_t
+{    
+    uint8_t msg_type:7;
+    uint8_t flag:1;
+}PACKED;
+
+
+
+class Host_Interface
+{
+private:
+    void ParseMessage(uint8_t dID,uint8_t dLenght, uint8_t *data);
+    uint8_t getIOpktLength(_host_pkt_t pkt, uint8_t c);
+    uint8_t getIOpktLength(_host_pkt_t pkt);
+    char sBuffer[512];
+    int sCount = 0;
+    u_long baud = 115200;
+    uint8_t deviceID;
+    uint8_t dataLength;
+    uint8_t data[255];
+    uint8_t dataCount;
+    uint8_t canCMD;
+    uint8_t Port = 0;
+    _host_pkt_t hPKT;
+    unsigned long sTime;
+public:
+    void processRequest(char *msg);
+    void ResetBuffer(void);
+    void BufferData(char c);
+    void SetPort(uint8_t p);
+    void SetBaud(u_long b);
+    void write(const uint8_t *data,uint8_t count);
+    Host_Interface(/* args */);
+    ~Host_Interface();
 };
+
 
 
 
