@@ -51,11 +51,20 @@ uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt, uint8_t c)
         //GPIO Write
     if(pkt.msg_type <= 0X28)
     {
-        
-        dataCount = 1;
-        hPKT.data[0] = c;
-        SerialUSB2.printf(" c data %x : %x \n\r",c,pkt.data[0]);
-        return 0;
+        if(pkt.flag == 1)
+        {
+            dataCount = 1;
+            hPKT.data[0] = c;
+            return 1;
+        }
+        else
+        {
+            //dataCount = 1;
+            //hPKT.data[0] = c;
+            //SerialUSB2.printf(" c data %x : %x \n\r",c,pkt.data[0]);
+            return 0;
+        }
+
     }
     //LED Write
     if((pkt.msg_type >= LED0ID)&&(pkt.msg_type <= LED3ID))
@@ -82,7 +91,7 @@ uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt, uint8_t c)
     {
         dataCount = 1;
         hPKT.data[0] = c;
-        return 1;
+        return 2;
     }
     return 0XFF;
 
@@ -107,16 +116,20 @@ void Host_Interface::BufferData(char c)
     {
         buffCount = 0;
         deviceID = c;
-        hPKT.msg_type = c;
+        hPKT.msg_type = c&0X7F;
         if(c >= 0X80)
         {
             hPKT.flag = 1;
         }
+        else
+        {
+            hPKT.flag = 0;
+        }
         buffer[buffCount] = c;
         buffCount++;
-        sCount++;
+        //sCount++;
         dataLength = getIOpktLength(hPKT);
-        SerialUSB2.printf("deviceID %x\n\r",deviceID);
+        SerialUSB2.printf("deviceID: %x: dataLength: %x\n\r",hPKT.msg_type,dataLength);
         //Take care of single byte commands
         //if((deviceID <= 0x28)||(deviceID == HEARTBEAT)||(deviceID == 0x2E)||(deviceID == 0x30)||((deviceID >= ADC0ID)&&(deviceID <= ADCFID))||(deviceID == I2C1ID)||(deviceID == I2C2ID)||(deviceID == I2C0ID))
         if(dataLength == 0)
@@ -133,12 +146,12 @@ void Host_Interface::BufferData(char c)
     {
         dataCount = 0;
         dataLength = getIOpktLength(hPKT,c);
-        if (dataLength == 0)
+        SerialUSB2.printf("::%x deviceID: %x: dataLength: %x\n\r",sCount, deviceID,dataLength);
+        if (dataLength == 1)
         {
             SerialUSB2.println("in 2 byte mode");
             ParseMessage(hPKT.msg_type,1,hPKT.data);
         }
-        sCount++;
         buffer[buffCount] = c;
         buffCount++;
         
@@ -161,24 +174,10 @@ void Host_Interface::BufferData(char c)
         }
         
     }
-    else if(sCount == 2)
-    {
-        //dataLength = dataLength + (c * 0X100);
-        dataLength--;
-        sCount++;
-        buffer[buffCount] = c;
-        buffCount++;
-        //dataCount = 0;
-        if(dataLength == 0)
-        {
-            ParseMessage(deviceID,dataLength,data);
-            dataCount = 0;
-            data[dataCount] = 0;
-            sCount = 0;
-        }
-    }
     else
     {
+        
+        hPKT.data[dataCount] = c;
         data[dataCount] = c;
         buffer[buffCount] = c;
         buffCount++;
@@ -191,7 +190,7 @@ void Host_Interface::BufferData(char c)
             sCount = 0;
         }
     }
-
+    sCount++;
 
 }
 void Host_Interface::SetPort(uint8_t P)
@@ -212,7 +211,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     uint8_t dID = _dID & 0X7F;
     SerialUSB2.printf("Parsing the Data\n\r");
     //SerialUSB2.printf("dID %x:: _dID::%x\n\r",dID,_dID);
-    SerialUSB2.printf(" device flag data %x : %x : %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.data[0]);
+    SerialUSB2.printf(" device flag data %x : %x : %x: %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.data[0], hPKT.data[1]);
     if ((dID & 0X7F) <= 41 ) //Gpio pin function
     {
         if(hPKT.flag == 1)
@@ -331,7 +330,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             msg.datalength2 = dLength - 255;
             memcpy(msg.data,_VERSION_+255,msg.datalength);
         }
-        write((byte*)&msg,dLength+3);
+        write((byte*)&msg,dLength+2);
         break;
     }
     case RESETID:
@@ -779,6 +778,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case ADCFID:
     case ADC10ID:
     case ADC11ID:
+    {
         uint16_t value = analog[dID - ADC0ID].Read();
         _adc_message msg;
         msg.proto = dID;
@@ -786,6 +786,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
         msg.data = value;
         write((uint8_t *)&msg,sizeof(msg));
         break;
+    }
     case PWM0ID:
     case PWM1ID:
     case PWM2ID:
@@ -811,14 +812,18 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case PWM16ID:
     case PWM17ID:
     case PWM18ID:
-    case PWM19ID:{
+    case PWM19ID:
+    {
+        //SerialUSB2.printf(" device flag data %x : %x : %x: %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.data[0], hPKT.data[1]);
         uint16_t lvalue = 0;
-        lvalue = (hPKT.data[1] << 8) + hPKT.data[0];
-        SerialUSB2.printf("PWM:%x:%x::%x\n\r",hPKT.data[0],hPKT.data[1]);
+        //lvalue = (hPKT.data[1] << 8) + hPKT.data[0];
+        lvalue = hPKT.data[0];
+        SerialUSB2.printf("PWM:%x:%x\n\r",hPKT.data[1],hPKT.data[0]);
         pwm[dID - PWM0ID].Write(lvalue);
+        break;
     }
-            break;
     default:
+         SerialUSB2.printf("We should not be here!!!!!!");
         break;
     }
 }
