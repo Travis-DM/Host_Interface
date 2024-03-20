@@ -12,7 +12,7 @@
 
 #include "i2c.h"
 #include "led.h"
-
+#include "drakio_can_lib.h"
 #include "version.h"
 
 //uint8_t dataCount;
@@ -34,7 +34,7 @@ uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt)
             return 0;
         }
     }
-    if((pkt.msg_type == HEARTBEAT)||(pkt.msg_type == 0x2E)||(pkt.msg_type == 0x30)||((pkt.msg_type >= ADC0ID)&&(pkt.msg_type <= ADCFID))||(pkt.msg_type == I2C1ID)||(pkt.msg_type == I2C2ID)||(pkt.msg_type == I2C0ID))
+    if((pkt.msg_type == HEARTBEAT)||(pkt.msg_type == GPIORID)||(pkt.msg_type == VERSIONID)||((pkt.msg_type >= ADC0ID)&&(pkt.msg_type <= ADCFID))||(pkt.msg_type == I2C1ID)||(pkt.msg_type == I2C2ID)||(pkt.msg_type == I2C0ID))
     {
         return 0;
     }
@@ -83,8 +83,8 @@ uint8_t Host_Interface::getIOpktLength(_host_pkt_t pkt, uint8_t c)
     //CAN Write
     if((pkt.msg_type >= CAN0ID)&&(pkt.msg_type <= CANFDID))
     {
-        //Break down CAN Packet
-        return 64;
+        hPKT.dLength = c;
+        return ((c & 0XFC) >> 2)+16;
     }
     //PWM Write
     if((pkt.msg_type >= PWM0ID)&&(pkt.msg_type <= PWM19ID))
@@ -111,7 +111,7 @@ void Host_Interface::ResetBuffer(void)
 void Host_Interface::BufferData(char c)
 {
     sTime = millis();
-    SerialUSB2.printf("got data: %d :: %x\n\r",c,sCount);
+    //SerialUSB2.printf("got data: %d :: %x\n\r",c,sCount);
     if (sCount == 0)
     {
         buffCount = 0;
@@ -129,12 +129,11 @@ void Host_Interface::BufferData(char c)
         buffCount++;
         //sCount++;
         dataLength = getIOpktLength(hPKT);
-        SerialUSB2.printf("deviceID: %x: dataLength: %x\n\r",hPKT.msg_type,dataLength);
+        //SerialUSB2.printf("deviceID: %x: dataLength: %x\n\r",hPKT.msg_type,dataLength);
         //Take care of single byte commands
-        //if((deviceID <= 0x28)||(deviceID == HEARTBEAT)||(deviceID == 0x2E)||(deviceID == 0x30)||((deviceID >= ADC0ID)&&(deviceID <= ADCFID))||(deviceID == I2C1ID)||(deviceID == I2C2ID)||(deviceID == I2C0ID))
         if(dataLength == 0)
         {
-            SerialUSB2.println("in one byte mode");
+            //SerialUSB2.println("in one byte mode");
             ParseMessage(deviceID,0,data);
             dataCount = 0;
             data[dataCount] = 0;
@@ -146,10 +145,10 @@ void Host_Interface::BufferData(char c)
     {
         dataCount = 0;
         dataLength = getIOpktLength(hPKT,c);
-        SerialUSB2.printf("::%x deviceID: %x: dataLength: %x\n\r",sCount, deviceID,dataLength);
+        //SerialUSB2.printf("::%x deviceID: %x: dataLength: %x\n\r",sCount, deviceID,dataLength);
         if (dataLength == 1)
         {
-            SerialUSB2.println("in 2 byte mode");
+            //SerialUSB2.println("in 2 byte mode");
             ParseMessage(hPKT.msg_type,1,hPKT.data);
         }
         buffer[buffCount] = c;
@@ -165,8 +164,8 @@ void Host_Interface::BufferData(char c)
             {
                 //canCMD = ((dataLength & 0x03) << 1) + ((deviceID & 0x80) >> 7);
                 //dataLength = (dataLength & 0xFC) >> 2;
-                dataLength = 64; 
-                sCount = 3;
+                //dataLength = 64; 
+                //sCount = 3;
                 break;
             }
         default:
@@ -207,16 +206,14 @@ void Host_Interface::SetBaud(u_long b)
 
 void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
 {
-    //hostInterface2.printf("in parser %x\n\r",data[0]);
     uint8_t dID = _dID & 0X7F;
-    SerialUSB2.printf("Parsing the Data\n\r");
-    //SerialUSB2.printf("dID %x:: _dID::%x\n\r",dID,_dID);
-    SerialUSB2.printf(" device flag data %x : %x : %x: %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.data[0], hPKT.data[1]);
+    //SerialUSB2.printf("Parsing the Data\n\r");
+    //SerialUSB2.printf(" device flag data %x : %x : %x: %x \n\r",hPKT.msg_type,hPKT.flag, hPKT.dLength, hPKT.data[0]);
     if ((dID & 0X7F) <= 41 ) //Gpio pin function
     {
         if(hPKT.flag == 1)
         {
-            SerialUSB2.printf("Writing pin %x : %x \n\r",dID,hPKT.data[0]);
+            //SerialUSB2.printf("Writing pin %x : %x \n\r",dID,hPKT.data[0]);
             gpio[dID & 0X3F].Write(hPKT.data[0]);
         }
         else
@@ -232,7 +229,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     {
     case HEARTBEAT:{
         _heartbeat_t pkt;
-        SerialUSB2.printf("in HeartBeat::%d\n\r",sizeof(pkt));
+        //SerialUSB2.printf("in HeartBeat::%d\n\r",sizeof(pkt));
         //received heartbeat
         //ToDo Add timestamp
         pkt.msg_type = HEARTBEAT;
@@ -356,12 +353,22 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             }
     }
         break;
-        /*
+        
     case CAN0ID:
         {
             
-            canCMD = ((dataLength & 0x03) << 1) + ((deviceID & 0x80) >> 7);
-            dataLength = (dataLength & 0xFC) >> 2;
+            canCMD = (CAN_CMD)(((hPKT.dLength & 0x03) << 1) + hPKT.flag);
+            dataLength = (hPKT.dLength & 0xFC) >> 2;
+            
+            
+            SerialUSB2.printf("CAN ID:%x:%x:%x\n\r",hPKT.msg_type,canCMD,dataLength);
+            SerialUSB2.printf("CAN Data ");
+            for (int x = 0;x<dataLength;x++)
+            {
+                SerialUSB2.printf(" : %x : %c ",hPKT.data[x],hPKT.data[x]);
+            }
+            SerialUSB2.println();
+            
             if (can0EN())
             {
                 switch (canCMD) {
@@ -378,13 +385,13 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                         Serial.send_now();
                     break;
                     case WRITE:
-                        memcpy(&umsg,buffer,buffCount);
+                        memcpy(&umsg,&hPKT,getIOpktLength(hPKT));
                         cmsg.id = *((uint32_t *) &umsg.h.id);
                         memcpy(cmsg.buf, &umsg.payload, umsg.h.len); 
                         can0.write(cmsg);
                     break;
                     case BUS_ON:
-                        CAN_SETUP(0);
+                        CAN_SETUP(0, can2USB);
                     break;
                     case BUS_OFF:
                         // There is no end() method in the FlexCan library, so this becomes a no-op for compatibility with Kvaser CANlib.
@@ -392,6 +399,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                         CAN_DISABLE_INTR_HANDLER(0);
                     break;
                     case SET_PARMS:
+                        memcpy(&umsg,&hPKT,getIOpktLength(hPKT));
                         handle = umsg.h.handle;
                         bitrate = *((uint32_t *)umsg.payload);
                         can0.setBaudRate(bitrate); 
@@ -403,14 +411,25 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                     default:
                     break;  
             }
+            
             }
         }
         break;
     case CAN1ID:
         {
+            canCMD = (CAN_CMD)(((hPKT.dLength & 0x03) << 1) + hPKT.flag);
+            dataLength = (hPKT.dLength & 0xFC) >> 2;
             
-            canCMD = ((dataLength & 0x03) << 1) + ((deviceID & 0x80) >> 7);
-            dataLength = (dataLength & 0xFC) >> 2;
+            
+            SerialUSB2.printf("CAN ID:%x:%x:%x\n\r",hPKT.msg_type,canCMD,dataLength);
+            /*
+            SerialUSB2.printf("CAN Data ");
+            for (int x = 0;x<dataLength;x++)
+            {
+                SerialUSB2.printf(" : %x : %c ");
+            }
+            SerialUSB2.println();
+            
             if (can1EN())
             {
                 switch (canCMD) {
@@ -452,14 +471,24 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                     default:
                     break;  
             }
-            }
+            }*/
         }
         break;
     case CAN2ID:
         {
+            canCMD = (CAN_CMD)(((hPKT.dLength & 0x03) << 1) + hPKT.flag);
+            dataLength = (hPKT.dLength & 0xFC) >> 2;
             
-            canCMD = ((dataLength & 0x03) << 1) + ((deviceID & 0x80) >> 7);
-            dataLength = (dataLength & 0xFC) >> 2;
+            
+            SerialUSB2.printf("CAN ID:%x:%x:%x\n\r",hPKT.msg_type,canCMD,dataLength);
+            SerialUSB2.printf("CAN Data ");
+            for (int x = 0;x<dataLength;x++)
+            {
+                SerialUSB2.printf(" : %x : %c ");
+            }
+            SerialUSB2.println();
+
+            /*
             if (can2EN())
             {
                 switch (canCMD) {
@@ -501,7 +530,7 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
                     default:
                     break;  
             }
-            }
+            }*/
         }
         break;
     case CANFDID:
@@ -509,44 +538,40 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART0ID:
         if (usart0EN())
         {
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
-                //is the package the right size
-
             }
             else
             {
-                debugger.msg(3,"Sending data to USART0");
-                for (int x = 0; x < dLenght; x++)
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    debugger.msg(3,"%c",data[x]);
-                    USART0.printf("%c",data[x]);
+                    USART0.printf("%c",hPKT.data[x]);
                 }
             }
         }
         else
         {
-            debugger.msg(3,"USART0 is not configured as USART");
             uint8_t packet[3];
             packet[0] = (USART0ID+0x80);
             packet[1] = 0;
             packet[2] = 0;
             write((byte*)packet,3);
         }
-        break;*/
+        break;
     case USART1ID:
+        {
         if (usart1EN())
         {            
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
             {
-                for (int x = 0; x < dLenght; x++)
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART1.printf("%c",data[x]);
+                    USART1.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -559,18 +584,19 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
             write((byte*)packet,3);
         }
         break;
+        }
     case USART2ID:
         if (usart2EN())
         {     
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
-                
+                //configure serial port
             }
             else
-            {       
-                for (int x = 0; x < dLenght; x++)
+            {
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART2.printf("%c",data[x]);
+                    USART2.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -586,15 +612,15 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART3ID:
         if (usart3EN())
         {      
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
-            {      
-                for (int x = 0; x < dLenght; x++)
+            {
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART3.printf("%c",data[x]);
+                    USART3.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -610,15 +636,15 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART4ID:
         if (usart4EN())
         {            
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
             {
-                for (int x = 0; x < dLenght; x++)
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART4.printf("%c",data[x]);
+                    USART4.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -634,15 +660,15 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART5ID:
         if (usart5EN())
         {        
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
-            {    
-                for (int x = 0; x < dLenght; x++)
+            {
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART5.printf("%c",data[x]);
+                    USART5.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -658,15 +684,15 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART6ID:
         if (usart6EN())
         {    
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
-            {        
-                for (int x = 0; x < dLenght; x++)
+            {
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART6.printf("%c",data[x]);
+                    USART6.printf("%c",hPKT.data[x]);
                 }
             }
         }
@@ -682,15 +708,15 @@ void Host_Interface::ParseMessage(uint8_t _dID,uint8_t dLenght, uint8_t *data)
     case USART7ID:
         if (usart7EN())
         {    
-            if(_dID > 0x80)
+            if(hPKT.flag == 0)
             {
                 //configure serial port
             }
             else
-            {        
-                for (int x = 0; x < dLenght; x++)
+            {
+                for (int x = 0; x < hPKT.dLength; x++)
                 {
-                    USART7.printf("%c",data[x]);
+                    USART7.printf("%c",hPKT.data[x]);
                 }
             }
         }

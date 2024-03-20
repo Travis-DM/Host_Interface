@@ -2,6 +2,7 @@
 #define _HOST_INTERFACE_H_
 
 #include <Arduino.h>
+#include "drakio_can_lib.h"
 
 #define PACKED __attribute__ ((packed))
 
@@ -14,6 +15,19 @@ struct _Host_message
     uint8_t datalength2;
     uint8_t data2[255];
 }PACKED;
+
+struct _usart_Data_pkt_t
+{
+    _Host_message   HM;
+    uint8_t         buffer_full:1;
+    uint8_t         buffer_cleared:1;
+    uint8_t         buffer2:1;
+    uint8_t         unused:5;
+    uint16_t        count;
+    unsigned long   sTime;
+
+};
+
 
 struct _host_pkt_t
 {
@@ -51,7 +65,7 @@ private:
     uint8_t dataLength;
     uint8_t data[255];
     uint8_t dataCount;
-    uint8_t canCMD;
+    CAN_CMD canCMD;
     uint8_t Port = 0;
     _host_pkt_t hPKT;
     unsigned long sTime;
