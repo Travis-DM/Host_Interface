@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "drakio_can_lib.h"
+#include "pin_mapping_T4.h"
 
 #define PACKED __attribute__ ((packed))
 
@@ -50,6 +51,13 @@ struct _heartbeat_t
     uint8_t flag:1;
 }PACKED;
 
+struct _sys_conf_pkt_t
+{
+    uint8_t proto:7;
+    uint8_t flag:1;
+    _sys_config_t sysConf;
+}PACKED;
+
 
 
 class Host_Interface
@@ -65,7 +73,7 @@ private:
     uint8_t dataLength;
     uint8_t data[255];
     uint8_t dataCount;
-    CAN_CMD canCMD;
+    //CAN_CMD canCMD;
     uint8_t Port = 0;
     _host_pkt_t hPKT;
     unsigned long sTime;
@@ -86,6 +94,7 @@ public:
 void handle_can(void);
 
 
+extern Host_Interface host_interface1;
 
 
 #endif
